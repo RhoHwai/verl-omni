@@ -31,6 +31,7 @@ from vllm_omni.diffusion.worker.request_batch import DiffusionRequestBatch
 from verl_omni.pipelines.diffusion_rollout_output import rollout_output, wrap_rollout_postprocessor
 from verl_omni.pipelines.model_base import VllmOmniPipelineBase
 from verl_omni.pipelines.request_batch import split_diffusion_output_by_request
+from verl_omni.pipelines.rollout_media import DiffusionIOSpec, MediaSpec
 from verl_omni.pipelines.schedulers import FlowMatchSDEDiscreteScheduler
 from verl_omni.pipelines.wan22_dance_grpo.common import seed_from_prompt_ids
 
@@ -155,6 +156,7 @@ class FluxDanceGRPOPipelineWithLogProb(FluxPipeline):
     """FLUX.1-dev generation plus aligned DanceGRPO transition capture."""
 
     supports_request_batch = True
+    diffusion_io_spec = DiffusionIOSpec(primary=MediaSpec("image"))
 
     def __init__(self, *, od_config: OmniDiffusionConfig, prefix: str = ""):
         super().__init__(od_config=od_config, prefix=prefix)

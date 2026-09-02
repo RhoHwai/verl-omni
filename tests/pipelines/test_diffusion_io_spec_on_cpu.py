@@ -32,6 +32,7 @@ _PRIMARY_MODALITY = [
         "image",
     ),
     ("verl_omni.pipelines.boogu_image_flow_grpo.vllm_omni_rollout_adapter", "BooguImagePipeline", "flow_grpo", "image"),
+    ("verl_omni.pipelines.flux_dance_grpo.vllm_omni_rollout_adapter", "FluxPipeline", "dance_grpo", "image"),
     ("verl_omni.pipelines.qwen_image_flow_grpo.vllm_omni_rollout_adapter", "QwenImagePipeline", "flow_grpo", "image"),
     (
         "verl_omni.pipelines.qwen_image_diffusion_nft.vllm_omni_rollout_adapter",

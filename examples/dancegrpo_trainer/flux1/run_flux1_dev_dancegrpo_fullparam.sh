@@ -18,10 +18,10 @@ case "$REWARD_NAME" in
         : "${HPSV2_PRETRAINED_PATH:?Set HPSV2_PRETRAINED_PATH to open_clip_pytorch_model.bin}"
         REWARD_FUNCTION_PATH=verl_omni/utils/reward_score/hpsv2_reward.py
         REWARD_FUNCTION_NAME=compute_score_hpsv2
-        # RewardLoopWorkers do not reserve Ray accelerator resources. Keep one
-        # CPU-resident HPSv2 copy by default so reward scoring cannot consume
-        # rollout NPU memory. Accelerator use must be an explicit override.
-        REWARD_NUM_WORKERS=${REWARD_NUM_WORKERS:-1}
+        # RewardLoopWorkers do not reserve Ray accelerator resources. Keep the
+        # HPSv2 scorers on CPU while using two workers for scoring throughput.
+        # Accelerator use must be an explicit override.
+        REWARD_NUM_WORKERS=${REWARD_NUM_WORKERS:-2}
         REWARD_DEVICE=${REWARD_DEVICE:-cpu}
         ROLLOUT_TP=${ROLLOUT_TP:-2}
         TRAIN_BATCH_SIZE=${TRAIN_BATCH_SIZE:-16}
@@ -36,10 +36,10 @@ case "$REWARD_NAME" in
         # HPSv3 loads one Qwen2-VL-7B model per RewardLoopWorker. Keep a
         # single copy and reduce rollout memory pressure on the shared NPUs.
         REWARD_NUM_WORKERS=${REWARD_NUM_WORKERS:-1}
-        ROLLOUT_TP=${ROLLOUT_TP:-4}
+        ROLLOUT_TP=${ROLLOUT_TP:-2}
         TRAIN_BATCH_SIZE=${TRAIN_BATCH_SIZE:-8}
         ROLLOUT_GPU_MEMORY_UTILIZATION=${ROLLOUT_GPU_MEMORY_UTILIZATION:-0.3}
-        ACTOR_MODEL_DTYPE=${ACTOR_MODEL_DTYPE:-bfloat16}
+        ACTOR_MODEL_DTYPE=${ACTOR_MODEL_DTYPE:-fp32}
         EXPERIMENT_NAME=${EXPERIMENT_NAME:-flux1_dev_fullparam_hpsv3}
         export custom_reward_model_path="$CUSTOM_REWARD_MODEL_PATH"
         ;;
@@ -122,7 +122,7 @@ python3 -m verl_omni.trainer.main_diffusion \
     actor_rollout_ref.rollout.tensor_model_parallel_size=$ROLLOUT_TP \
     actor_rollout_ref.rollout.agent.num_workers=$((NUM_GPUS / ROLLOUT_TP)) \
     actor_rollout_ref.rollout.layered_summon=true \
-    actor_rollout_ref.rollout.enable_sleep_mode=true \
+    +actor_rollout_ref.rollout.enable_sleep_mode=true \
     actor_rollout_ref.rollout.free_cache_engine=true \
     actor_rollout_ref.rollout.calculate_log_probs=true \
     actor_rollout_ref.rollout.gpu_memory_utilization=$ROLLOUT_GPU_MEMORY_UTILIZATION \

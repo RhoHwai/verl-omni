@@ -32,7 +32,6 @@ Optional environment variable:
 import logging
 import os
 import threading
-from contextlib import nullcontext
 from typing import Any
 
 import numpy as np
@@ -43,7 +42,6 @@ logger = logging.getLogger(__name__)
 logger.setLevel(os.getenv("VERL_LOGGING_LEVEL", "INFO"))
 
 _load_lock = threading.Lock()
-_inference_lock = threading.Lock()
 _scorer = None
 _scorer_key: tuple[str, str, str] | None = None
 
@@ -93,8 +91,7 @@ class _HPSv2Scorer:
     def score(self, image: Image.Image, prompt: str) -> float:
         image_input = self.preprocess(image).unsqueeze(0).to(self.device)
         text_input = self.tokenizer([prompt]).to(self.device)
-        autocast = nullcontext() if self.device.type == "cpu" else torch.autocast(device_type=self.device.type)
-        with _inference_lock, torch.inference_mode(), autocast:
+        with torch.inference_mode(), torch.autocast(device_type=self.device.type):
             output = self.model(image_input, text_input)
             raw_score = torch.diagonal(output["image_features"] @ output["text_features"].T)
         return float(raw_score.item())

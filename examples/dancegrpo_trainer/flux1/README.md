@@ -66,9 +66,11 @@ REWARD_NAME=hpsv2 \
   bash examples/dancegrpo_trainer/flux1/run_flux1_dev_dancegrpo_fullparam.sh
 ```
 
-HPSv2 defaults to one CPU-resident reward worker (`REWARD_NUM_WORKERS=1` and
+HPSv2 defaults to two CPU-resident reward workers (`REWARD_NUM_WORKERS=2` and
 `REWARD_DEVICE=cpu`). The OpenCLIP model and both checkpoints are loaded on
-CPU, so reward scoring does not consume rollout NPU memory. To opt into NPU
+CPU, so reward scoring does not consume rollout NPU memory. Synchronous scorer
+calls run through the reward manager's executor, and HPSv2 uses autocast during
+inference to retain the throughput of the validated recipe. To opt into NPU
 scoring, set `REWARD_DEVICE=npu:0` explicitly. This is not the default because
 verl RewardLoopWorkers do not reserve Ray accelerator resources; an explicit
 NPU scorer can therefore contend with actor and rollout allocations.
@@ -95,9 +97,10 @@ REWARD_NAME=hpsv3 \
 ```
 
 HPSv3 uses conservative defaults because each RewardLoopWorker loads one
-Qwen2-VL-7B reward model: one reward worker, rollout TP 4, training batch size
-8, rollout memory utilization 0.3, and BF16 actor model storage. Parameter and
-optimizer offload remain enabled. These settings reduce the OOM risk observed
-with two reward workers and TP 2, but they do not add Ray NPU isolation to the
-existing HPSv3 implementation. Keep offload enabled when validating this mode
-on the target server.
+Qwen2-VL-7B reward model: one reward worker, training batch size 8, and rollout
+memory utilization 0.3. Rollout TP 2 and FP32 actor model storage are aligned
+with the validated FLUX full-parameter recipe. Parameter and optimizer offload
+remain enabled. The single reward worker and reduced batch/memory utilization
+lower memory pressure, but they do not add Ray NPU isolation to the existing
+HPSv3 implementation. Keep offload enabled when validating this mode on the
+target server.

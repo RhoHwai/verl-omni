@@ -44,12 +44,21 @@ class DiffusionRolloutAlgoConfig(BaseConfig):
     sde_window_range: Optional[list[int]] = None
     sde_contiguous: bool = True
 
+    # DanceGRPO transition selection after chronological rollout.
+    timestep_sample_strategy: str = "continuous"
+    timestep_fraction: float = 1.0
+    drop_last_transition: bool = False
+
     # MixGRPO-only configs
     sample_strategy: str = "random"
     iters_per_group: int = 1
     sde_window_seed: int = 0
 
     def __post_init__(self):
+        if self.timestep_sample_strategy not in ("continuous", "random_subset"):
+            raise ValueError(f"Unknown timestep_sample_strategy: {self.timestep_sample_strategy!r}")
+        if not 0 < self.timestep_fraction <= 1:
+            raise ValueError(f"timestep_fraction must be in (0, 1], got {self.timestep_fraction}.")
         if self.sample_strategy not in ("random", "progressive"):
             raise ValueError(f"Unknown sample_strategy: {self.sample_strategy!r}")
         if self.sample_strategy == "progressive" and self.iters_per_group <= 0:

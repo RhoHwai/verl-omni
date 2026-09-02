@@ -146,8 +146,20 @@ def compute_advantage(
     Returns:
         DataProto: The updated data with computed ``advantages`` and ``returns`` in its batch.
     """
+    rewards = data.batch["sample_level_rewards"]
+    is_dance_grpo = adv_estimator == DiffusionAdvantageEstimator.DANCE_GRPO
+    if is_dance_grpo:
+        # DanceGRPO repeats one trajectory reward across denoising steps. Group
+        # normalization must operate on one scalar per trajectory, otherwise
+        # torch.std treats the copies as independent observations.
+        scalar_rewards = rewards[:, :1]
+        if not torch.allclose(rewards, scalar_rewards.expand_as(rewards)):
+            raise ValueError("DanceGRPO expects one reward repeated across every trajectory timestep")
+    else:
+        scalar_rewards = rewards
+
     adv_kwargs = {
-        "sample_level_rewards": data.batch["sample_level_rewards"],
+        "sample_level_rewards": scalar_rewards,
         "config": config,
     }
     if "uid" in data.non_tensor_batch:
@@ -160,10 +172,19 @@ def compute_advantage(
         adv_kwargs["reward_baselines"] = data.batch["reward_baselines"]
 
     adv_estimator_fn = get_diffusion_adv_estimator_fn(adv_estimator)
-    if adv_estimator == DiffusionAdvantageEstimator.FLOW_GRPO:
+    if adv_estimator in (
+        DiffusionAdvantageEstimator.FLOW_GRPO,
+        DiffusionAdvantageEstimator.DANCE_GRPO,
+    ):
         adv_kwargs["norm_adv_by_std_in_grpo"] = norm_adv_by_std_in_grpo
         adv_kwargs["global_std"] = global_std
+    if is_dance_grpo:
+        adv_kwargs["epsilon"] = 1e-8
     advantages, returns = adv_estimator_fn(**adv_kwargs)
+
+    if is_dance_grpo:
+        advantages = advantages.expand_as(rewards).clone()
+        returns = returns.expand_as(rewards).clone()
 
     data.batch["advantages"] = advantages
     data.batch["returns"] = returns
@@ -1067,8 +1088,10 @@ class BaseRayDiffusionTrainer(ABC):
         batch_td = _to_diffusion_worker_tensordict(batch)
         # step 2: convert from padding to no-padding
         batch_td = embeds_padding_2_no_padding(batch_td)
-        ppo_mini_batch_size = self.config.actor_rollout_ref.actor.ppo_mini_batch_size
-        ppo_mini_batch_size = ppo_mini_batch_size * self.config.actor_rollout_ref.rollout.n
+        actor_config = self.config.actor_rollout_ref.actor
+        ppo_mini_batch_size = actor_config.ppo_mini_batch_size
+        if not actor_config.ppo_mini_batch_size_is_trajectory:
+            ppo_mini_batch_size *= self.config.actor_rollout_ref.rollout.n
         ppo_epochs = self.config.actor_rollout_ref.actor.ppo_epochs
         seed = self.config.actor_rollout_ref.actor.data_loader_seed
         shuffle = self.config.actor_rollout_ref.actor.shuffle

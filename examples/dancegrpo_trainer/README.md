@@ -4,6 +4,8 @@ Last updated: 08/07/2026
 
 This example shows how to post-train `Wan2.2-TI2V-5B` with DanceGRPO on text-to-video generation tasks. DanceGRPO extends FlowGRPO with a score-based SDE step formulation for improved numerical stability during rollout sampling.
 
+For the FLUX.1-dev text-to-image full-parameter recipe, see [flux1](./flux1/README.md).
+
 For the base Flow-GRPO setup, see [Examples - FlowGRPO Trainer](https://verl-omni.readthedocs.io/en/latest/examples/flowgrpo_trainer.html). For algorithm details, see [Algorithms - Flow-GRPO](../../docs/algo/flowgrpo.md).
 
 ## Installation

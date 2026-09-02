@@ -141,6 +141,8 @@ class DiffusionActorConfig(BaseConfig):
 
     strategy: str = MISSING
     ppo_mini_batch_size: int = 256
+    # Interpret ppo_mini_batch_size as a global trajectory count directly.
+    ppo_mini_batch_size_is_trajectory: bool = False
     ppo_micro_batch_size_per_gpu: int = MISSING
     diffusion_loss: DiffusionLossConfig = field(default_factory=DiffusionLossConfig)
     loss_scale_factor: Optional[float] = None

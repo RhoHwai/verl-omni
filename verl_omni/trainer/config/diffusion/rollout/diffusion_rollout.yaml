@@ -236,6 +236,15 @@ algo:
   # Whether selected SDE steps must form one consecutive window
   sde_contiguous: true
 
+  # How to select DanceGRPO transitions after rollout: continuous or random_subset
+  timestep_sample_strategy: continuous
+
+  # Fraction of eligible DanceGRPO transitions retained after rollout
+  timestep_fraction: 1.0
+
+  # Drop the final eligible DanceGRPO transition before selection
+  drop_last_transition: false
+
   # MixGRPO sliding-window scheduler configs
 
   # Sliding strategy: "random" (default) draws a fresh window per step;

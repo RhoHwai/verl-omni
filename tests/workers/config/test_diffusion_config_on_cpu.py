@@ -314,8 +314,31 @@ class TestFSDPDiffusionActorConfig:
         actor_cfg: FSDPDiffusionActorConfig = omega_conf_to_dataclass(cfg)
 
         assert actor_cfg.strategy == "fsdp"
+        assert actor_cfg.ppo_mini_batch_size_is_trajectory is False
         assert actor_cfg.ppo_micro_batch_size_per_gpu == 4
         assert isinstance(actor_cfg.diffusion_loss, DiffusionLossConfig)
+
+    def test_trajectory_minibatch_override(self):
+        import os
+
+        from hydra import compose, initialize_config_dir
+        from verl.utils.config import omega_conf_to_dataclass
+
+        import verl_omni
+
+        config_dir = os.path.join(os.path.dirname(verl_omni.__file__), "trainer/config/diffusion/actor")
+        with initialize_config_dir(config_dir=config_dir, version_base=None):
+            cfg = compose(
+                config_name="dp_diffusion_actor",
+                overrides=[
+                    "strategy=fsdp",
+                    "ppo_micro_batch_size_per_gpu=4",
+                    "ppo_mini_batch_size_is_trajectory=true",
+                ],
+            )
+        actor_cfg: FSDPDiffusionActorConfig = omega_conf_to_dataclass(cfg)
+
+        assert actor_cfg.ppo_mini_batch_size_is_trajectory is True
 
     def test_engine_strategy_synced(self):
         """After __post_init__, engine.strategy must mirror actor.strategy."""

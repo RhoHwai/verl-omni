@@ -17,6 +17,9 @@ strategy: ???
 # Split each sample into sub-batches of this size for PPO
 ppo_mini_batch_size: 256
 
+# Interpret ppo_mini_batch_size as a global trajectory count without multiplying by rollout.n
+ppo_mini_batch_size_is_trajectory: false
+
 # Local per-GPU micro batch size
 ppo_micro_batch_size_per_gpu: null
 

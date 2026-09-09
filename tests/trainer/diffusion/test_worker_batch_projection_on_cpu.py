@@ -23,10 +23,12 @@ from omegaconf import OmegaConf
 from verl import DataProto
 from verl.utils import tensordict_utils as tu
 
+from verl_omni.trainer.diffusion.diffusion_algos import DiffusionAdvantageEstimator
 from verl_omni.trainer.diffusion.ray_diffusion_trainer import (
     DirectPreferenceRayTrainer,
     PolicyGradientRayTrainer,
     _to_diffusion_worker_tensordict,
+    compute_advantage,
 )
 from verl_omni.trainer.diffusion.teacher_manager import DiffusionTeacherManager
 from verl_omni.trainer.diffusion.v1.trainer_base import PolicyGradientDiffusionTrainerV1
@@ -43,6 +45,7 @@ def _make_config():
                 },
                 "actor": {
                     "ppo_mini_batch_size": 2,
+                    "ppo_mini_batch_size_is_trajectory": False,
                     "ppo_epochs": 1,
                     "data_loader_seed": 0,
                     "shuffle": False,
@@ -132,6 +135,57 @@ def test_v0_diffusion_worker_hops_exclude_responses(trainer_cls, method_name, wo
     worker = getattr(trainer, worker_attr)
     sent_batch = getattr(worker, remote_method).call_args.args[0]
     _assert_worker_projection(sent_batch, driver_batch)
+
+
+@pytest.mark.parametrize(
+    ("is_trajectory", "expected_batch_size"),
+    [(False, 6), (True, 2)],
+)
+def test_v0_policy_gradient_minibatch_semantics(is_trajectory, expected_batch_size):
+    trainer = PolicyGradientRayTrainer.__new__(PolicyGradientRayTrainer)
+    trainer.config = _make_config()
+    trainer.config.actor_rollout_ref.rollout.n = 3
+    trainer.config.actor_rollout_ref.actor.ppo_mini_batch_size_is_trajectory = is_trajectory
+    trainer.actor_rollout_wg, trainer.ref_policy_wg = _make_worker_groups()
+
+    trainer._update_actor(_make_batch())
+
+    sent_batch = trainer.actor_rollout_wg.update_actor.call_args.args[0]
+    assert tu.get(sent_batch, "global_batch_size") == expected_batch_size
+    assert tu.get(sent_batch, "mini_batch_size") == expected_batch_size
+
+
+def test_dance_grpo_uses_one_reward_per_trajectory_for_group_std():
+    trajectory_rewards = torch.tensor([1.0, 3.0, 10.0, 14.0])
+    rewards = trajectory_rewards[:, None].expand(-1, 3).clone()
+    batch = DataProto.from_dict(
+        tensors={"sample_level_rewards": rewards},
+        non_tensors={"uid": np.array(["a", "a", "b", "b"], dtype=object)},
+    )
+
+    result = compute_advantage(
+        batch,
+        DiffusionAdvantageEstimator.DANCE_GRPO,
+        norm_adv_by_std_in_grpo=True,
+        global_std=False,
+    )
+
+    centered = torch.tensor([-1.0, 1.0, -2.0, 2.0])
+    group_stds = torch.tensor([1.0, 3.0, 10.0, 14.0]).reshape(2, 2).std(dim=1).repeat_interleave(2)
+    expected = centered / group_stds
+    expected = expected[:, None].expand_as(rewards)
+    torch.testing.assert_close(result.batch["advantages"], expected)
+    torch.testing.assert_close(result.batch["returns"], expected)
+
+
+def test_dance_grpo_rejects_timestep_varying_rewards():
+    batch = DataProto.from_dict(
+        tensors={"sample_level_rewards": torch.tensor([[1.0, 2.0]])},
+        non_tensors={"uid": np.array(["a"], dtype=object)},
+    )
+
+    with pytest.raises(ValueError, match="one reward repeated"):
+        compute_advantage(batch, DiffusionAdvantageEstimator.DANCE_GRPO, global_std=False)
 
 
 def test_teacher_manager_hop_excludes_responses():

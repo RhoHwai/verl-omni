@@ -61,6 +61,7 @@ python3 -m verl_omni.trainer.main_diffusion \
     trainer.project_name=$PROJECT_NAME \
     trainer.experiment_name=$EXPERIMENT_NAME \
     algorithm.adv_estimator=dance_grpo \
+    algorithm.global_std=false \
     algorithm.rollout_correction.bypass_mode=false \
     actor_rollout_ref.model.path=$MODEL_NAME \
     actor_rollout_ref.model.algorithm=dance_grpo \
@@ -83,7 +84,8 @@ python3 -m verl_omni.trainer.main_diffusion \
     actor_rollout_ref.actor.ppo_epochs=1 \
     actor_rollout_ref.actor.shuffle=false \
     actor_rollout_ref.actor.data_loader_seed=42 \
-    actor_rollout_ref.actor.ppo_mini_batch_size=4 \
+    actor_rollout_ref.actor.ppo_mini_batch_size=32 \
+    actor_rollout_ref.actor.ppo_mini_batch_size_is_trajectory=true \
     actor_rollout_ref.actor.ppo_micro_batch_size_per_gpu=1 \
     actor_rollout_ref.actor.fsdp_config.fsdp_size=$NUM_GPUS \
     actor_rollout_ref.actor.fsdp_config.model_dtype=$ACTOR_MODEL_DTYPE \
